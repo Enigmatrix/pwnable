@@ -1,2 +1,3 @@
-FROM ubuntu
-RUN apt install gdb
+FROM ubuntu:latest
+RUN apt-get update -y
+RUN apt-get install -y gdb
