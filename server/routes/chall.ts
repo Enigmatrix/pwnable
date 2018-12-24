@@ -4,6 +4,8 @@ import uuid from 'uuid';
 import path from 'path';
 import sscanf from 'sscanf';
 import { Container } from 'dockerode';
+import slashes from 'slashes';
+import { stringify } from 'querystring';
 
 let challs = express.Router();
 
@@ -19,7 +21,7 @@ let getChallStream = async (chall:Container) => {
         stream: true, stdin: true, stdout: true, /*stderr: true*/});
 };
 
-let tillGdbCmdSep = (stream: NodeJS.ReadWriteStream, cmd):Promise<string> => {
+let tillGdbCmdSep = (stream: NodeJS.ReadWriteStream, cmd):Promise<string[]> => {
     return new Promise(res => {
         let result = Buffer.from("");
         const needle = '(gdb) ';
@@ -28,11 +30,16 @@ let tillGdbCmdSep = (stream: NodeJS.ReadWriteStream, cmd):Promise<string> => {
                 dat = Buffer.from(dat);
             let sep = dat.indexOf(needle);
             //console.log('BUFF>>', dat.toString());
-            if(sep > 0){
+            if(sep >= 0){
                 result = Buffer.concat([result, dat.slice(0, sep)]);
                 stream.unshift(dat.slice(sep+needle.length));
                 stream.removeListener('data', listener);
-                res(result.toString());
+                //console.log(result.toString())
+                let out = result.toString().split('\n')
+                    .filter(x => x.indexOf("~\"") >= 0 && x.indexOf("\\n\"") >= 0)
+                    .map(x => beforeLast(afterFirst(x, "~\""), "\\n\""))
+                    .map(x => JSON.parse('"'+x+'"'));
+                res(out);
             } else {
                 result = Buffer.concat([result, dat]);
             }
@@ -47,7 +54,7 @@ let gdbCmdInit = async (chall: Container) => {
     await tillGdbCmdSep(stream, '');
 };
 
-let gdbCmd = async (chall:Container, cmd):Promise<string> => {
+let gdbCmd = async (chall:Container, cmd):Promise<string[]> => {
     let stream = await getChallStream(chall);
     return await tillGdbCmdSep(stream, cmd+'\n');
 };
@@ -69,6 +76,7 @@ challs.post('/new', async (req, res) => {
             Privileged: true
         },
         Entrypoint: "gdb",
+        Cmd: ["-i=mi"]
     })
     await chall.start();
 
@@ -82,8 +90,8 @@ challs.post('/new', async (req, res) => {
     
     res.json({
         id: chall.id,
-        csrc: csrcFromLines(csrc),
-        asmsrc: asmsrcFromLines(asmsrc)
+        csrc: csrc.map(cLine),
+        asmsrc: asmsrc.map(asmLine)
     })
 });
 
@@ -102,21 +110,23 @@ challs.delete('/:id', async (req, res) => {
     res.sendStatus(200);
 });
 
-let csrcFromLines = (src:string) => {
-    return src.split('\n').map(x => afterFirst(x, "\t"))
-}
-
-let asmsrcFromLines = (src:string) => {
-    return src.split('\n').map(asmLine);
+let cLine = (s: string) => {
+    return sscanf(s, '%d\t%S', 'no', 'src')
 }
 
 let asmLine = (s: string) => {
-    return sscanf(s, '0x%s <%s>:\t%S', 'addr', 'raddr', 'src');
+    //the <main+x> might not be always there!
+    return sscanf(s, '   0x%s <%s>:\t%S', 'addr', 'raddr', 'src');
 }
 
 let afterFirst = (s: string, pat:string) => {
     var i = s.indexOf(pat);
     return s.slice(i+pat.length);
+};
+
+let beforeLast = (s: string, pat:string) => {
+    var i = s.lastIndexOf(pat);
+    return s.slice(0, i);
 };
 
 export default challs;
