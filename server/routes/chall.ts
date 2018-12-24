@@ -81,17 +81,18 @@ challs.post('/new', async (req, res) => {
     await chall.start();
 
     await gdbCmdInit(chall);
-    console.log(await gdbCmd(chall, 'cd ./bof1'));
-    console.log(await gdbCmd(chall, 'file ./bof1'));
-    console.log(await gdbCmd(chall, 'set disassembly-flavor intel'));
+    await gdbCmd(chall, 'cd ./bof1');
+    await gdbCmd(chall, 'file ./bof1');
+    await gdbCmd(chall, 'set disassembly-flavor intel');
     let asmsrc = await gdbCmd(chall, 'x/10i main');
-    console.log(await gdbCmd(chall, 'break main'));
     let csrc = await gdbCmd(chall, 'list main');
     
     res.json({
         id: chall.id,
         csrc: csrc.map(cLine),
-        asmsrc: asmsrc.map(asmLine)
+        asmsrc: asmsrc.map(asmLine),
+        running: false,
+        breakpoints: false
     })
 });
 
@@ -103,6 +104,18 @@ challs.delete('/all', async (req, res) => {
     res.sendStatus(200);
 });
 
+challs.post('break/:id', async (req, res) => {
+
+})
+
+challs.post('run/:id', async (req, res) => {
+
+})
+
+challs.post('step/:id', async (req, res) => {
+
+})
+
 challs.delete('/:id', async (req, res) => {
     let id = req.params.id;
     let chall = await getChall(id);
@@ -111,7 +124,7 @@ challs.delete('/:id', async (req, res) => {
 });
 
 let cLine = (s: string) => {
-    return sscanf(s, '%d\t%S', 'no', 'src')
+    return sscanf(s, '%d\t%S', 'no', 'src');
 }
 
 let asmLine = (s: string) => {
