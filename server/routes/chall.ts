@@ -2,6 +2,7 @@ import express from 'express';
 import docker from '../docker';
 import uuid from 'uuid';
 import path from 'path';
+import sscanf from 'sscanf';
 import { Container } from 'dockerode';
 
 let challs = express.Router();
@@ -15,24 +16,25 @@ let getChall = async id => {
 
 let getChallStream = async (chall:Container) => {
     return await chall.attach({
-        stream: true, stdin: true, stdout: true, stderr: true});
+        stream: true, stdin: true, stdout: true, /*stderr: true*/});
 };
 
-let tillGdbCmdSep = (stream: NodeJS.ReadWriteStream, cmd) => {
+let tillGdbCmdSep = (stream: NodeJS.ReadWriteStream, cmd):Promise<string> => {
     return new Promise(res => {
-        let result = '';
+        let result = Buffer.from("");
         const needle = '(gdb) ';
         let listener = (dat: Buffer|string) => {
-            if(dat instanceof Buffer)
-                dat = dat.toString();
+            if(!(dat instanceof Buffer))
+                dat = Buffer.from(dat);
             let sep = dat.indexOf(needle);
+            //console.log('BUFF>>', dat.toString());
             if(sep > 0){
-                result+=dat.substring(0, sep);
-                stream.unshift(Buffer.from(dat.substring(sep+needle.length)));
+                result = Buffer.concat([result, dat.slice(0, sep)]);
+                stream.unshift(dat.slice(sep+needle.length));
                 stream.removeListener('data', listener);
-                res(result);
+                res(result.toString());
             } else {
-                result+=dat;
+                result = Buffer.concat([result, dat]);
             }
         }
         stream.on('data', listener);
@@ -45,7 +47,7 @@ let gdbCmdInit = async (chall: Container) => {
     await tillGdbCmdSep(stream, '');
 };
 
-let gdbCmd = async (chall:Container, cmd) => {
+let gdbCmd = async (chall:Container, cmd):Promise<string> => {
     let stream = await getChallStream(chall);
     return await tillGdbCmdSep(stream, cmd+'\n');
 };
@@ -66,19 +68,22 @@ challs.post('/new', async (req, res) => {
             CapAdd: ['SYS_PTRACE'],
             Privileged: true
         },
-        Entrypoint: "gdb"
+        Entrypoint: "gdb",
     })
     await chall.start();
 
-    //read gdb intro
-    //await gdbCmd(chall, '');
     await gdbCmdInit(chall);
-    console.log(await gdbCmd(chall, 'file /bin/ls'));
-    console.log(await gdbCmd(chall, 'x/20i main'));
-    console.log(await gdbCmd(chall, 'x/20i main'));
+    console.log(await gdbCmd(chall, 'cd ./bof1'));
+    console.log(await gdbCmd(chall, 'file ./bof1'));
+    console.log(await gdbCmd(chall, 'set disassembly-flavor intel'));
+    let asmsrc = await gdbCmd(chall, 'x/10i main');
+    console.log(await gdbCmd(chall, 'break main'));
+    let csrc = await gdbCmd(chall, 'list main');
     
     res.json({
-        id: chall.id
+        id: chall.id,
+        csrc: csrcFromLines(csrc),
+        asmsrc: asmsrcFromLines(asmsrc)
     })
 });
 
@@ -96,5 +101,22 @@ challs.delete('/:id', async (req, res) => {
     chall.kill();
     res.sendStatus(200);
 });
+
+let csrcFromLines = (src:string) => {
+    return src.split('\n').map(x => afterFirst(x, "\t"))
+}
+
+let asmsrcFromLines = (src:string) => {
+    return src.split('\n').map(asmLine);
+}
+
+let asmLine = (s: string) => {
+    return sscanf(s, '0x%s <%s>:\t%S', 'addr', 'raddr', 'src');
+}
+
+let afterFirst = (s: string, pat:string) => {
+    var i = s.indexOf(pat);
+    return s.slice(i+pat.length);
+};
 
 export default challs;
