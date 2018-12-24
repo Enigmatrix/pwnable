@@ -24,7 +24,7 @@ export default new Router({
     {
       path: '/main',
       name: 'main',
-      component: () => import('./views/Main.vue')
+      component: () => import(/* webpackChunkName: "about" */ './views/Main.vue'),
     },
   ],
 });
