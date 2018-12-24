@@ -16,10 +16,23 @@ let getChall = async id => {
     return chall;
 };
 
-let getChallStream = async (chall:Container) => {
-    return await chall.attach({
+let getGdb = async (chall:Container) => {
+    let procStream = await chall.attach({
         stream: true, stdin: true, stdout: true, stderr: true});
+    let stdout1 = new MemoryStream();
+    let stderr1 = new MemoryStream();
+    await chall.modem.demuxStream(procStream, stdout1, stderr1);
+    return new GDB({
+        stdin: procStream,
+        stdout: stdout1,
+        stderr: stderr1
+    });
 };
+
+let gdbFromChallId = async id => {
+    let chall = await getChall(id);
+    return await getGdb(chall);
+}
 
 challs.post('/new', async (req, res) => {
     let chall = await docker.createContainer({
@@ -41,15 +54,7 @@ challs.post('/new', async (req, res) => {
         Cmd: ["-i=mi"]
     })
     await chall.start();
-    let procStream = await getChallStream(chall);
-    let stdout1 = new MemoryStream();
-    let stderr1 = new MemoryStream();
-    await chall.modem.demuxStream(procStream, stdout1, stderr1);
-    let gdb = new GDB({
-        stdin: procStream,
-        stdout: stdout1,
-        stderr: stderr1
-    });
+    let gdb = await getGdb(chall);
     await gdb.init();
     console.log(await gdb.execCLI('cd bof1'));
     console.log(await gdb.execCLI('file bof1'));
@@ -73,16 +78,22 @@ challs.delete('/all', async (req, res) => {
     res.sendStatus(200);
 });
 
-challs.post('break/:id', async (req, res) => {
-
+challs.post('/:id/break/asm', async (req, res) => {
+    let gdb = await gdbFromChallId(req.params.id);
 })
 
-challs.post('run/:id', async (req, res) => {
-
+challs.post('/:id/break/c', async (req, res) => {
+    let gdb = await gdbFromChallId(req.params.id);
 })
 
-challs.post('step/:id', async (req, res) => {
+challs.post('/:id/run', async (req, res) => {
+    let gdb = await gdbFromChallId(req.params.id);
+    await gdb.run();
+    res.sendStatus(200);
+})
 
+challs.post('/:id/step', async (req, res) => {
+    
 })
 
 challs.delete('/:id', async (req, res) => {
