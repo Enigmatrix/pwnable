@@ -4,8 +4,10 @@ import uuid from 'uuid';
 import path from 'path';
 import sscanf from 'sscanf';
 import { Container } from 'dockerode';
-import slashes from 'slashes';
-import { stringify } from 'querystring';
+import {GDB} from 'gdb-js';
+import MemoryStream from 'memorystream';
+
+
 
 let challs = express.Router();
 
@@ -18,7 +20,7 @@ let getChall = async id => {
 
 let getChallStream = async (chall:Container) => {
     return await chall.attach({
-        stream: true, stdin: true, stdout: true, /*stderr: true*/});
+        stream: true, stdin: true, stdout: true, stderr: true});
 };
 
 let tillGdbCmdSep = (stream: NodeJS.ReadWriteStream, cmd):Promise<string[]> => {
@@ -79,18 +81,32 @@ challs.post('/new', async (req, res) => {
         Cmd: ["-i=mi"]
     })
     await chall.start();
+    let procStream = await getChallStream(chall);
+    let stdout1 = new MemoryStream();
+    let stderr1 = new MemoryStream();
+    await chall.modem.demuxStream(procStream, stdout1, stderr1);
+    let gdb = new GDB({
+        stdin: procStream,
+        stdout: stdout1,
+        stderr: stderr1
+    });
+    await gdb.init();
+    console.log(await gdb.execCLI('cd bof1'));
+    console.log(await gdb.execCLI('file bof1'));
+    let asmsrc = await gdb.execCLI('x/10i main');
+    let csrc = await gdb.execCLI('list main');
 
-    await gdbCmdInit(chall);
+    /*await gdbCmdInit(chall);
     await gdbCmd(chall, 'cd ./bof1');
     await gdbCmd(chall, 'file ./bof1');
     await gdbCmd(chall, 'set disassembly-flavor intel');
     let asmsrc = await gdbCmd(chall, 'x/10i main');
-    let csrc = await gdbCmd(chall, 'list main');
+    let csrc = await gdbCmd(chall, 'list main');*/
     
     res.json({
         id: chall.id,
-        csrc: csrc.map(cLine),
-        asmsrc: asmsrc.map(asmLine),
+        csrc: csrc.split('\n').map(cLine),
+        asmsrc: asmsrc.split('\n').map(asmLine),
         running: false,
         breakpoints: false
     })

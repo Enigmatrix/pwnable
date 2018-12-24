@@ -1,3 +1,4 @@
+import 'babel-polyfill';
 import express, {Application} from 'express';
 import challs from './routes/chall';
 
