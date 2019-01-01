@@ -1,45 +1,77 @@
 <template>
-  <v-container grid-list-md fluid fill-height style="padding: 0">
-    <v-layout row>
-      <v-flex xs6 style="background: red;">
-        <v-card class="elevation-8" style="margin: 0">
-          <v-layout row style="margin: 0; padding: 0">
-            <div style="width: 18px; padding-top: 0; font-size: 0;">
-              <input type="radio" style="width:18px; height:18px; margin-top: 0; font-size: 18px; margin-bottom: 0.25em; background: orange" v-for="i in 12" :key="i"/>
-            </div>
-            <v-flex style="margin: 0; padding: 0">
-              <pre v-highlightjs="csrc" style="font-size: 18px"><code class="c cpp" style="padding: 0"></code></pre>
+    <v-container grid-list-md fluid fill-height style="padding: 0">
+        <v-layout row style="margin: 0">
+            <v-flex xs6 style="padding: 0">
+                <v-card fill-height style="margin: 4px" class="elevation-8">
+                    <Registers :regs="registers"></Registers>
+                    <v-divider></v-divider>
+                    <Memory></Memory>
+                </v-card>
             </v-flex>
-          </v-layout>
-        </v-card>
-      </v-flex>
-      <v-flex xs6>
-        <v-container fill-height style="padding: 0">
-          <v-layout column>
-            <v-flex xs6 style="background: yellow"></v-flex>
-          </v-layout>
-        </v-container>
-      </v-flex>
-    </v-layout>
-  </v-container>
+            <v-flex xs6>
+                <v-container fill-height style="padding: 0">
+                    <v-layout column>
+                        <v-flex xs6 style="padding: 0;">
+                            <v-card class="elevation-8" style="margin: 4px">
+                                <v-layout row>
+                                    <v-btn flat icon small color="green">
+                                        <v-icon>mdi-play</v-icon>
+                                    </v-btn>
+                                    <v-btn flat icon small color="red">
+                                        <v-icon>mdi-flash</v-icon>
+                                    </v-btn>
+                                    <v-divider vertical></v-divider>
+                                    <v-btn flat icon small>
+                                        <v-icon>mdi-skip-backward</v-icon>
+                                    </v-btn>
+                                    <v-btn flat icon small>
+                                        <v-icon>mdi-skip-previous</v-icon>
+                                    </v-btn>
+                                    <v-btn flat icon small>
+                                        <v-icon>mdi-skip-next</v-icon>
+                                    </v-btn>
+                                    <v-btn flat icon small>
+                                        <v-icon>mdi-skip-forward</v-icon>
+                                    </v-btn>
+                                </v-layout>
+                                <Source :srcs="sources"></Source>
+                            </v-card>
+                        </v-flex>
+                    </v-layout>
+                </v-container>
+            </v-flex>
+        </v-layout>
+    </v-container>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
-import VueHighlight from 'vue-highlightjs';
-import cpp from 'highlight.js/lib/languages/cpp';
-import hljs from 'highlight.js/lib/highlight';
-hljs.registerLanguage('cpp', cpp);
-import 'highlight.js/styles/github.css';
+    import {Component, Vue} from "vue-property-decorator";
+    import Code, {langs} from "@/components/Code.vue";
+    import Source from "@/components/Source.vue";
+    import Registers from '@/components/Registers.vue';
+    import Memory from '@/components/Memory.vue';
 
-Vue.use(VueHighlight);
-@Component({
-  components: {
-    VueHighlight
-  },
-  data(){
-    return {
-      csrc: `#include <stdio.h>
+    @Component({
+        components: {
+            Memory,
+            Registers,
+            Source,
+            Code
+        },
+        methods: {},
+        data() {
+            return {
+                langs,
+                cFontSize: 18,
+                registers: {
+                    'rax': 0x40000,
+                    'rbx': 0x60000,
+                    'rsp': 0x5445,
+                    'rbp': 0x6363,
+                },
+                sources: [
+                    {
+                        src: `#include <stdio.h>
 
 int main(){
     int nani = 0;
@@ -50,9 +82,21 @@ int main(){
     else printf("Fail");
 
     return 0;
-}`
-    };
-  }
-})
-export default class Main extends Vue {}
+}`,
+                        lines: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"]
+                    },
+                    {
+                        src: `push rbp
+mov rbp, rsp
+
+leave
+ret`,
+                        lines: ["0x400000", "0x400001", "0x40000a", "0x40000d", "0x40000f"]
+                    }
+                ]
+            };
+        }
+    })
+    export default class Main extends Vue {
+    }
 </script>
