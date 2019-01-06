@@ -3,7 +3,7 @@
         <div :key="rname" v-for="(rinfo, rname) in regInfo" style="margin: 4px">
             <v-layout row align-center style="font-family: monospace; padding: 4px">
                 <div>{{rname}} : </div>
-                <div v-ripple><v-icon small>mdi-content-copy</v-icon></div>
+                <div><v-icon small>mdi-content-copy</v-icon></div>
                 <select class="elevation-4">
                     <option :key="meth.name" v-for="meth in valueForms">{{meth(rinfo)}}</option>
                 </select>

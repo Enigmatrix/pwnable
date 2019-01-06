@@ -37,6 +37,9 @@
                                 <Source :srcs="sources" ></Source>
                             </v-card>
                         </v-flex>
+                        <v-flex xs6 style="padding: 0">
+                            <Terminal :challid="challid"></Terminal>
+                        </v-flex>
                     </v-layout>
                 </v-container>
             </v-flex>
@@ -50,6 +53,7 @@
     import Source from "@/components/Source.vue";
     import Registers from '@/components/Registers.vue';
     import Memory from '@/components/Memory.vue';
+    import Terminal from '@/components/Terminal.vue';
     import axios from '@/util/axios';
 
     @Component({
@@ -57,7 +61,8 @@
             Memory,
             Registers,
             Source,
-            Code
+            Code,
+            Terminal
         },
         methods: {
             async run(){
@@ -73,8 +78,14 @@
             console.log(res.data);
             this.$data.chall = res.data;
         },
+        computed:{
+            challid(){
+                return this.$data.chall == undefined ? undefined : this.$data.chall.id;
+            },
+        },
         data() {
             return {
+                chall: undefined,
                 langs,
                 cFontSize: 18,
                 registers: {

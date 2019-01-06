@@ -6,6 +6,7 @@ import { Container, Exec } from 'dockerode';
 import {GDB} from 'gdb-js';
 import MemoryStream from 'memorystream';
 import { Socket } from 'net';
+import wsStream from 'websocket-stream/stream';
 
 let challs = express.Router();
 
@@ -95,7 +96,6 @@ challs.post('/new', async (req, res) => {
     let chall_name = 'crackme4';
     let container = await initChallContainer(name);
     let output = await containerExecStream(container, ['bash', '-c', 'socat pty,raw,echo=0,link=/dev/gdbout,waitslave -']);
-    output.pipe(process.stdout);
     let gdb = await initGdb(container, chall_name);
 
     let asmsrc = await gdb.execCLI('x/10i main');
@@ -120,6 +120,13 @@ challs.delete('/all', async (req, res) => {
     res.sendStatus(200);
 });
 
+challs.ws('/:id/output', async (ws, req) => {
+    const stream = wsStream(ws, {binary: true});
+    let chall = getChallenge(req.params.id);
+    chall.output.pipe(stream);
+    stream.pipe(chall.output);
+});
+
 challs.post('/:id/break/asm', async (req, res) => {
     let chall = getChallenge(req.params.id);
 })
@@ -140,8 +147,8 @@ challs.post('/:id/step', async (req, res) => {
 
 challs.delete('/:id', async (req, res) => {
     let id = req.params.id;
-    let chall = await getChall(id);
-    chall.kill();
+    let chall = await getChallenge(id);
+    //chall.kill();
     res.sendStatus(200);
 });
 

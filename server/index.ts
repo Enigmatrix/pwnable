@@ -1,15 +1,23 @@
 import 'babel-polyfill';
-import express, {Application} from 'express';
-import challs from './routes/chall';
+import express, {Application, Router} from 'express';
+import expressWsify from 'express-ws';
+import morgan from 'morgan';
 
-export default (app:Application) => {
-  app.use(express.json());
-  
-  app.get('/foo', (req, res) => {
-     res.json({msg: 'foo'});
+let routesFrom = async file => {
+  return await import(file).then(x => x.default)
+}
+
+export default async (app:Application) => {
+  let expressWss = expressWsify(app, null, {
+    wsOptions: {
+      perMessageDeflate: false
+    }
   });
+  app = expressWss.app;
+  app.use(express.json());
+  app.use(morgan('tiny'))
 
-  app.use('/chall', challs);
+  app.use('/chall', await routesFrom('./routes/chall'));
 
   //
   // app.post('/bar', (req, res) => {
