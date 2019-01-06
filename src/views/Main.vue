@@ -54,6 +54,7 @@
     import Registers from '@/components/Registers.vue';
     import Memory from '@/components/Memory.vue';
     import Terminal from '@/components/Terminal.vue';
+    //import {ChallengeState} from '@/../dtos/ChallengeState';
     import axios from '@/util/axios';
 
     @Component({

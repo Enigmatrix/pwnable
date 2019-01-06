@@ -9,8 +9,7 @@
 
 <script lang="ts">
 import { Component, Vue } from "vue-property-decorator";
-import { langs } from "./Code";
-import Code from "@/components/Code.vue";
+import Code, { langs } from "@/components/Code.vue";
 @Component({
   components: { Code },
   props: ["srcs"],

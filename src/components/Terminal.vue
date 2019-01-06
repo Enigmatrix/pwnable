@@ -29,7 +29,7 @@ let ws = (path:string) => {
             XTerminal.applyAddon(attach);
             terminal.open(this.$refs.terminal as HTMLElement);
             let socket = ws(`/chall/${this.$props.challid}/output`);
-            terminal.attach(socket);
+            (<any>terminal).attach(socket);
         }
     }
 })
