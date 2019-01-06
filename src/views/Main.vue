@@ -14,7 +14,7 @@
                         <v-flex xs6 style="padding: 0;">
                             <v-card class="elevation-8" style="margin: 4px">
                                 <v-layout row>
-                                    <v-btn flat icon small color="green">
+                                    <v-btn flat icon small color="green" @click="run">
                                         <v-icon>mdi-play</v-icon>
                                     </v-btn>
                                     <v-btn flat icon small color="red">
@@ -34,7 +34,7 @@
                                         <v-icon>mdi-skip-forward</v-icon>
                                     </v-btn>
                                 </v-layout>
-                                <Source :srcs="sources"></Source>
+                                <Source :srcs="sources" ></Source>
                             </v-card>
                         </v-flex>
                     </v-layout>
@@ -50,6 +50,7 @@
     import Source from "@/components/Source.vue";
     import Registers from '@/components/Registers.vue';
     import Memory from '@/components/Memory.vue';
+    import axios from '@/util/axios';
 
     @Component({
         components: {
@@ -58,7 +59,20 @@
             Source,
             Code
         },
-        methods: {},
+        methods: {
+            async run(){
+                console.log(this);
+                console.log(await axios.post(`/chall/${this.$data.chall.id}/run`));
+            },
+            async asmSrc(){
+
+            }
+        },
+        async mounted(){
+            let res = await axios.post('/chall/new');
+            console.log(res.data);
+            this.$data.chall = res.data;
+        },
         data() {
             return {
                 langs,

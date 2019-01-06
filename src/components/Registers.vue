@@ -1,11 +1,11 @@
 <template>
     <div>
-        <div v-for="(rinfo, rname) in regInfo" style="margin: 4px">
+        <div :key="rname" v-for="(rinfo, rname) in regInfo" style="margin: 4px">
             <v-layout row align-center style="font-family: monospace; padding: 4px">
-                <div>{{rname}}:</div>
+                <div>{{rname}} : </div>
                 <div v-ripple><v-icon small>mdi-content-copy</v-icon></div>
                 <select class="elevation-4">
-                    <option v-for="meth in valueForms">{{meth(rinfo)}}</option>
+                    <option :key="meth.name" v-for="meth in valueForms">{{meth(rinfo)}}</option>
                 </select>
             </v-layout>
         </div>
@@ -16,22 +16,22 @@
 import { Component, Vue } from "vue-property-decorator";
 const range = (n: Number) => Array.from(Array(n).keys());
 
-function int(s: Number){
+function int(s: number){
     return s + "u64";
 }
-function sint(s: Number){
+function sint(s: number){
 
 }
-function hex(s: Number){
+function hex(s: number){
     return "0x"+s.toString(16);
 }
-function oct(s: Number){
+function oct(s: number){
     return "0o"+s.toString(8);
 }
-function bin(s: Number){
+function bin(s: number){
     return "0b"+s.toString(2)//.padStart(64, "0");
 }
-function str(s: Number){
+function str(s: number){
     return `"${String.fromCharCode(...range(8).map(x => (s >> (x*8)) & 0xff))}"`;
 }
 const valueForms =  [
@@ -58,8 +58,6 @@ export default class Registers extends Vue {}
 
 <style scoped lang="scss">
     select {
-        -moz-appearance: none;
-        display: inline-block;
         option {
             background: #424242;
             color: white;

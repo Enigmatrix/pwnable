@@ -1,41 +1,37 @@
 import express from 'express';
 import docker from '../docker';
 import uuid from 'uuid';
-import path from 'path';
 import sscanf from 'sscanf';
-import { Container } from 'dockerode';
+import { Container, Exec } from 'dockerode';
 import {GDB} from 'gdb-js';
 import MemoryStream from 'memorystream';
+import { Socket } from 'net';
 
 let challs = express.Router();
 
-let getChall = async id => {
-    let chall = docker.getContainer(id);
-    let info = await chall.inspect();
-    if(!info.Name.startsWith('/chall-')) throw new Error("Container not found");
-    return chall;
-};
+let challMapping: {[key:string]: Challenge} = {};
 
-let getGdb = async (chall:Container) => {
-    let procStream = await chall.attach({
-        stream: true, stdin: true, stdout: true, stderr: true});
-    let stdout1 = new MemoryStream();
-    let stderr1 = new MemoryStream();
-    await chall.modem.demuxStream(procStream, stdout1, stderr1);
-    return new GDB({
-        stdin: procStream,
-        stdout: stdout1,
-        stderr: stderr1
-    });
-};
+class Challenge {
+    id: string;
+    name: string;
+    chall_name: string;
+    gdb: GDB;
+    container: Container;
+    output: Socket;
 
-let gdbFromChallId = async id => {
-    let chall = await getChall(id);
-    return await getGdb(chall);
+    constructor(name: string, chall_name: string, container: Container, gdb: GDB, output: Socket) {
+        this.id = container.id;
+        this.name = name;
+        this.chall_name = chall_name;
+        this.container = container;
+        this.gdb = gdb;
+        this.output = output;
+    }
 }
 
-challs.post('/new', async (req, res) => {
-    let chall = await docker.createContainer({
+//TODO: make sure solving one chall doesnt mean they cd and solve other challs
+let initChallContainer = async (name: string) => {
+    let container = await docker.createContainer({
         Image: 'chall_base',
         AttachStdin: true,
         AttachStderr: true,
@@ -43,26 +39,72 @@ challs.post('/new', async (req, res) => {
         //Tty: true,
         OpenStdin: true,
         Volumes: {},
-        name: 'chall-'+uuid.v4(),
+        name,
         HostConfig: {
             // list of "src:dest"
             Binds: [],
             CapAdd: ['SYS_PTRACE'],
-            Privileged: true
+            Privileged: true,
         },
         Entrypoint: "gdb",
         Cmd: ["-i=mi"]
-    })
-    await chall.start();
-    let gdb = await getGdb(chall);
+    });
+    await container.start();
+    return container;
+};
+
+let initGdb = async (chall: Container, chall_name: string) => {
+    let procStream = await chall.attach({
+        stream: true, stdin: true, stdout: true, stderr: true});
+    let stdout1 = new MemoryStream();
+    let stderr1 = new MemoryStream();
+    await chall.modem.demuxStream(procStream, stdout1, stderr1);
+    let gdb = new GDB({
+        stdin: procStream,
+        stdout: stdout1,
+        stderr: stderr1
+    });
     await gdb.init();
-    console.log(await gdb.execCLI('cd bof1'));
-    console.log(await gdb.execCLI('file bof1'));
+    await gdb.enableAsync();
+    await gdb.execCLI('cd '+chall_name);
+    await gdb.execCLI('file '+chall_name);
+    await gdb.execCLI('tty /dev/gdbout');
+    return gdb;
+};
+
+let containerExecStream = async (container: Container,cmd: string[]) => {
+    let exec = await container.exec({
+        AttachStdin: true,
+        AttachStdout: true,
+        AttachStderr: true,
+        Tty: true,
+        Cmd:['bash', '-c', 'socat pty,raw,echo=0,link=/dev/gdbout,waitslave -']});
+    let out = await exec.start({Tty: true});
+    return <Socket>out.output.connection;
+}
+
+let getChallenge = id => {
+    let chall = challMapping[id];
+    if(!chall)
+        throw new Error(`Challenge ${id} not found!`)
+    return chall;
+}
+
+challs.post('/new', async (req, res) => {
+    let name = 'chall-'+uuid.v4();
+    let chall_name = 'crackme4';
+    let container = await initChallContainer(name);
+    let output = await containerExecStream(container, ['bash', '-c', 'socat pty,raw,echo=0,link=/dev/gdbout,waitslave -']);
+    output.pipe(process.stdout);
+    let gdb = await initGdb(container, chall_name);
+
     let asmsrc = await gdb.execCLI('x/10i main');
     let csrc = await gdb.execCLI('list main');
     
+    challMapping[container.id] = new Challenge(name, chall_name, container, gdb, output);
+
     res.json({
-        id: chall.id,
+        id: container.id,
         csrc: csrc.split('\n').map(cLine),
         asmsrc: asmsrc.split('\n').map(asmLine),
         running: false,
@@ -79,16 +121,16 @@ challs.delete('/all', async (req, res) => {
 });
 
 challs.post('/:id/break/asm', async (req, res) => {
-    let gdb = await gdbFromChallId(req.params.id);
+    let chall = getChallenge(req.params.id);
 })
 
 challs.post('/:id/break/c', async (req, res) => {
-    let gdb = await gdbFromChallId(req.params.id);
+    let chall = getChallenge(req.params.id);
 })
 
 challs.post('/:id/run', async (req, res) => {
-    let gdb = await gdbFromChallId(req.params.id);
-    await gdb.run();
+    let chall = getChallenge(req.params.id);
+    await chall.gdb.run();
     res.sendStatus(200);
 })
 
