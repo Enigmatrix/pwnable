@@ -23,14 +23,12 @@ let ws = (path:string) => {
 
 @Component({
     props: ['challid'],
-    watch: {
-        challid(id){
-            let terminal = new XTerminal();
-            XTerminal.applyAddon(attach);
-            terminal.open(this.$refs.terminal as HTMLElement);
-            let socket = ws(`/chall/${this.$props.challid}/output`);
-            (<any>terminal).attach(socket);
-        }
+    mounted(){
+        let terminal = new XTerminal();
+        XTerminal.applyAddon(attach);
+        terminal.open(this.$refs.terminal as HTMLElement);
+        let socket = ws(`/chall/${this.$props.challid}/output`);
+        (<any>terminal).attach(socket);
     }
 })
 export default class Terminal extends Vue {}

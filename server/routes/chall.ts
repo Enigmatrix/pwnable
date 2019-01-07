@@ -7,6 +7,7 @@ import {GDB} from 'gdb-js';
 import MemoryStream from 'memorystream';
 import { Socket } from 'net';
 import wsStream from 'websocket-stream/stream';
+import {ChallengeState} from '../../dtos/ChallengeState';
 
 let challs = express.Router();
 
@@ -103,13 +104,17 @@ challs.post('/new', async (req, res) => {
     
     challMapping[container.id] = new Challenge(name, chall_name, container, gdb, output);
 
-    res.json({
+    let state: ChallengeState = {
         id: container.id,
-        csrc: csrc.split('\n').map(cLine),
-        asmsrc: asmsrc.split('\n').map(asmLine),
-        running: false,
-        breakpoints: false
-    })
+        chall_name,
+        sources: [
+            csrc.split('\n').map(cLine),
+            asmsrc.split('\n').map(asmLine)
+        ],
+        breakpoints: []
+    };
+
+    res.json(state)
 });
 
 challs.delete('/all', async (req, res) => {
@@ -153,7 +158,7 @@ challs.delete('/:id', async (req, res) => {
 });
 
 let cLine = (s: string) => {
-    return sscanf(s, '%d\t%S', 'no', 'src');
+    return sscanf(s, '%d\t%S', 'line', 'src');
 }
 
 let asmLine = (s: string) => {

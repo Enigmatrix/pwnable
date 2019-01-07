@@ -8,19 +8,13 @@ let routesFrom = async file => {
 }
 
 export default async (app:Application) => {
-  let expressWss = expressWsify(app, null, {
+  expressWsify(app, null, {
     wsOptions: {
       perMessageDeflate: false
     }
   });
-  app = expressWss.app;
   app.use(express.json());
   app.use(morgan('tiny'))
 
   app.use('/chall', await routesFrom('./routes/chall'));
-
-  //
-  // app.post('/bar', (req, res) => {
-  //   res.json(req.body);
-  // });
 }

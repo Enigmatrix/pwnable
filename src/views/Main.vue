@@ -1,5 +1,5 @@
 <template>
-    <v-container grid-list-md fluid fill-height style="padding: 0">
+    <v-container v-if="chall" grid-list-md fluid fill-height style="padding: 0">
         <v-layout row style="margin: 0">
             <v-flex xs6 style="padding: 0">
                 <v-card fill-height style="margin: 4px" class="elevation-8">
@@ -34,11 +34,11 @@
                                         <v-icon>mdi-skip-forward</v-icon>
                                     </v-btn>
                                 </v-layout>
-                                <Source :srcs="sources" ></Source>
+                                <Source :srcs="sources" />
                             </v-card>
                         </v-flex>
                         <v-flex xs6 style="padding: 0">
-                            <Terminal :challid="challid"></Terminal>
+                            <Terminal :challid="chall.id"></Terminal>
                         </v-flex>
                     </v-layout>
                 </v-container>
@@ -54,7 +54,7 @@
     import Registers from '@/components/Registers.vue';
     import Memory from '@/components/Memory.vue';
     import Terminal from '@/components/Terminal.vue';
-    //import {ChallengeState} from '@/../dtos/ChallengeState';
+    import {ChallengeState, CSourceLine, AsmSourceLine} from '@/../dtos/ChallengeState';
     import axios from '@/util/axios';
 
     @Component({
@@ -69,9 +69,6 @@
             async run(){
                 console.log(this);
                 console.log(await axios.post(`/chall/${this.$data.chall.id}/run`));
-            },
-            async asmSrc(){
-
             }
         },
         async mounted(){
@@ -81,12 +78,25 @@
         },
         computed:{
             challid(){
-                return this.$data.chall == undefined ? undefined : this.$data.chall.id;
+                return this.$data.chall.id;
             },
+            sources(){
+                let csrc: CSourceLine[] = this.$data.chall.sources[0];
+                let asmsrc: AsmSourceLine[] = this.$data.chall.sources[1];
+                
+                return [{
+                    lines: csrc.map(x => ''+x.line),
+                    src: csrc.map(x => x.src).join('\n')
+                },
+                {
+                    lines: asmsrc.map(x => `${x.addr} <${x.raddr}>`),
+                    src: asmsrc.map(x => x.src).join('\n')
+                }]
+            }
         },
         data() {
             return {
-                chall: undefined,
+                chall: <ChallengeState|undefined>undefined,
                 langs,
                 cFontSize: 18,
                 registers: {
@@ -94,32 +104,7 @@
                     'rbx': 0x60000,
                     'rsp': 0x5445,
                     'rbp': 0x6363,
-                },
-                sources: [
-                    {
-                        src: `#include <stdio.h>
-
-int main(){
-    int nani = 0;
-    char name[8];
-    scanf("%s", name);
-    if (nani == 0x696e616e)
-        printf("Success");
-    else printf("Fail");
-
-    return 0;
-}`,
-                        lines: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"]
-                    },
-                    {
-                        src: `push rbp
-mov rbp, rsp
-
-leave
-ret`,
-                        lines: ["0x400000", "0x400001", "0x40000a", "0x40000d", "0x40000f"]
-                    }
-                ]
+                }
             };
         }
     })

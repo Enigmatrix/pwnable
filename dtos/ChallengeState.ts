@@ -14,7 +14,6 @@ export interface AsmSourceLine extends SourceLine {
 
 export interface ChallengeState {
     id: string;
-    name: string;
     chall_name: string;
     sources: [CSourceLine[], AsmSourceLine[]],
     breakpoints: []
